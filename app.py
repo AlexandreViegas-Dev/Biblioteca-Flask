@@ -4,99 +4,107 @@ from flask import Flask, jsonify, request, render_template, send_from_directory,
 
 # Dados é outro script com uma estrutura de dados simples
 import dados
-
-biblioteca = dados.carregar_do_arquivo()
+import database
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'minhachave'
+
+def formatar(valor):
+    chaves = ["isbn","titulo","autor","genero","ano_publicacao","editora","paginas","status","localizacao"]
+    valor = [dict(zip(chaves, tupla)) for tupla in valor]
+    return valor
+
+biblioteca = formatar(database.lista_livro())
 
 @app.route('/')
 def hello():
     return render_template('hello.html')
 
 @app.route('/biblioteca', methods=['GET', 'POST'])
-def interface_web():
+def interface_web(message = None, status = None):
     ## função para gerenciamento de interface web
     valor = request.args.get('valor')
     if valor and valor != "":
         return redirect(url_for('pesquisa_livro', valor=valor))
-    biblioteca = dados.carregar_do_arquivo()
-    return render_template('biblioteca.html', biblioteca=biblioteca)
+    
+    if message and status:
+        flash(message, status)
+    
+    biblioteca = database.lista_livro()
+    return render_template('biblioteca.html', biblioteca=formatar(biblioteca))
 
 @app.route('/biblioteca/<valor>', methods=['GET'])
 def pesquisa_livro(valor):
     #Lista livors
     if valor:
-        biblioteca = dados.carregar_do_arquivo()
-        biblioteca = [livro for livro in biblioteca if livro['isbn'] == valor or livro['titulo'].replace(" ", "_") == valor]
-        return render_template('biblioteca.html',biblioteca = biblioteca), 200
+        biblioteca = database.pesquisar_livro((valor,))
+        if biblioteca:
+            return render_template('biblioteca.html',biblioteca = formatar(biblioteca)), 200
+        else:
+            flash('Livro não localizado', 'info')
+            return redirect(url_for('interface_web'))
     else:
         return render_template('biblioteca.html',biblioteca = biblioteca), 200
 
 @app.route('/biblioteca/criar', methods=['GET','POST'])
 def cria_livro():
     if request.method == 'POST':
-        novo_livro = {
-            'isbn': request.form.get('isbn'),
-            'titulo': request.form.get('titulo'),
-            'autor': request.form.get('autor'),
-            'titulo': request.form.get('titulo'),
-            'genero': request.form.get('genero'),
-            'ano_publicado': request.form.get('ano_publicado'),
-            'editora': request.form.get('editora'),
-            'paginas': request.form.get('paginas'),
-            'status': request.form.get('status'),
-            'localizacao': request.form.get('localizacao')
-        }
+        alteracoes = (
+            request.form.get('isbn'),
+            request.form.get('titulo'),
+            request.form.get('autor'),
+            request.form.get('genero'),
+            request.form.get('ano_publicacao'),
+            request.form.get('editora'),
+            request.form.get('paginas'),
+            request.form.get('status'),
+            request.form.get('localizacao')
+        )
 
-        for l in biblioteca:
-           if l['isbn'] == novo_livro['isbn']:
-                return jsonify("Livro já cadastrado"), 200
-        biblioteca.append(novo_livro)
-        dados.salvar_no_arquivo(biblioteca)
-        return render_template('biblioteca.html', biblioteca=biblioteca)
+        alterado = database.criar_livro(alteracoes)
+        if alterado > 0:
+            flash('Livro criado com sucesso', 'success')
+            return redirect(url_for('interface_web'))
+        flash('Não foi possível criar um livro', 'error')
+        return redirect(url_for('interface_web')) 
     else:
         return render_template('criar_livro.html')
 
 @app.route('/biblioteca/excluir/<isbn>', methods=['POST'])
 def exclui_livro(isbn):
-    biblioteca = dados.carregar_do_arquivo()
-    biblioteca = [livro for livro in biblioteca if livro['isbn'] != isbn]
-    dados.salvar_no_arquivo(biblioteca)
-    return redirect(url_for(interface_web))
+    alterado = database.excluir_livro((isbn,))
+    if alterado > 0:
+        flash('Livro excluido com sucesso', 'success')
+    else:
+        flash('Livro não encontrado', 'info')
+    return redirect(url_for('interface_web'))
 
 @app.route('/biblioteca/atualizar/<isbn>', methods=['GET', 'POST'])
 def atualiza_livro(isbn):
     if request.method == 'GET':
-        biblioteca = dados.carregar_do_arquivo()
-        for livro in biblioteca:
-            if livro['isbn'] == isbn:
-                biblioteca = livro
-        return render_template('editar_livro.html', livro=biblioteca)
+        biblioteca = database.pesquisar_livro((isbn,))
+        biblioteca = formatar(biblioteca)
+        print(biblioteca)
+        return render_template('editar_livro.html', livro=biblioteca[0])
 
     if request.method == 'POST':
-        biblioteca = dados.carregar_do_arquivo()
-        alteracoes = {
-            'isbn': request.form.get('isbn'),
-            'titulo': request.form.get('titulo'),
-            'autor': request.form.get('autor'),
-            'titulo': request.form.get('titulo'),
-            'genero': request.form.get('genero'),
-            'ano_publicacao': request.form.get('ano_publicacao'),
-            'editora': request.form.get('editora'),
-            'paginas': request.form.get('paginas'),
-            'status': request.form.get('status'),
-            'localizacao': request.form.get('localizacao')
-        }
-        for livro in biblioteca:
-            if livro['isbn'] == isbn:
-                for key, value in alteracoes.items():
-                    livro[key] = value
-                dados.salvar_no_arquivo(biblioteca)
-                flash('Livro alterado com sucesso', 'sucess')
-                return render_template('biblioteca.html', biblioteca=biblioteca)
+        alteracoes = (
+            request.form.get('titulo'),
+            request.form.get('autor'),
+            request.form.get('genero'),
+            request.form.get('ano_publicacao'),
+            request.form.get('editora'),
+            request.form.get('paginas'),
+            request.form.get('status'),
+            request.form.get('localizacao'),
+            request.form.get('isbn')
+        )
+        alterado = database.editar_livro(alteracoes)
+        if alterado > 0:
+            flash('Livro alterado com sucesso', 'success')
+            return redirect(url_for('interface_web'))
         flash('Livro não localizado', 'info')
-        return render_template('biblioteca.html', biblioteca=biblioteca)
+        return redirect(url_for('interface_web')) 
 
 
 # Por padrão o método é GET

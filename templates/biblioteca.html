@@ -8,6 +8,7 @@
 <div class="col-sm-8">
     <form action="{{ url_for('interface_web') }}" method="GET">
         <label>Pesquisa: <input type="text" name="valor" onchange="this.form.submit()"></label><br>
+        <label>Disponível: <input type="checkbox" name="disponivel" onchange="this.form.submit()"></label><br>
     </form>
 <table class="table table-dark table-hover">
     <thead>

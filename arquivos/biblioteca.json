@@ -9,17 +9,5 @@
         "paginas": 420,
         "status": "disponivel",
         "localizacao": "Estante A1, Prateleira 2"
-    },
-    {
-        "isbn": "123-8535914849",
-        "titulo": "1984",
-        "autor": "George Orwell",
-        "genero": "Distopia",
-        "ano_publicacao": "1950",
-        "editora": "Companhia das Letras",
-        "paginas": "420",
-        "status": "disponivel",
-        "localizacao": "Estante A1, Prateleira 2",
-        "ano_publicado": null
     }
 ]
